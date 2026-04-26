@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>复杂大型多Agent协作体系建设方案</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #06060f;
+  --bg-secondary: #0a0a1a;
+  --bg-card: #0d0d2b;
+  --bg-card-hover: #12123a;
+  --purple: #8b5cf6;
+  --cyan: #06b6d4;
+  --blue: #3b82f6;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #1e1e3f;
+  --gradient-main: linear-gradient(135deg, #8b5cf6, #06b6d4, #3b82f6);
+  --glow-purple: 0 0 20px rgba(139,92,246,0.3);
+  --glow-cyan: 0 0 20px rgba(6,182,212,0.3);
+  --glow-blue: 0 0 20px rgba(59,130,246,0.3);
+}
+
+@font-face {
+  font-family: 'SystemFont';
+  src: local('PingFang SC'), local('Microsoft YaHei'), local('Noto Sans SC');
+}
+
+body {
+  font-family: 'SystemFont', system-ui, -apple-system, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+canvas#particle-bg {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+/* Navigation */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(6,6,15,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 2rem;
+  display: flex; align-items: center; gap: 1.5rem;
+  transition: box-shadow 0.3s;
+}
+nav.scrolled { box-shadow: var(--glow-purple); }
+nav .logo {
+  font-weight: 800; font-size: 1.1rem;
+  background: var(--gradient-main); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+nav .nav-links { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+nav .nav-links a {
+  color: var(--text-secondary); text-decoration: none; font-size: 0.85rem;
+  padding: 0.4rem 0.75rem; border-radius: 6px;
+  transition: all 0.2s; border: 1px solid transparent;
+}
+nav .nav-links a:hover {
+  color: var(--cyan); background: rgba(6,182,212,0.1);
+  border-color: rgba(6,182,212,0.3);
+}
+
+/* Hero */
+.hero {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 6rem 2rem 4rem;
+}
+.hero h1 {
+  font-size: clamp(1.8rem, 5vw, 3.5rem);
+  font-weight: 900;
+  background: var(--gradient-main); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 1rem;
+  letter-spacing: -0.02em;
+}
+.hero .subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+}
+.typing-cursor {
+  display: inline-block; width: 3px; height: 1.2em; background: var(--cyan);
+  margin-left: 2px; animation: blink 0.8s infinite;
+}
+@keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+.hero .scroll-hint {
+  position: absolute; bottom: 2rem;
+  color: var(--text-muted); font-size: 0.85rem;
+  animation: bounce 2s infinite;
+}
+@keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+
+/* Sections */
+section {
+  position: relative; z-index: 1;
+  max-width: 1200px; margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+.section-title {
+  font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+  font-weight: 800;
+  margin-bottom: 1rem;
+  background: var(--gradient-main); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  position: relative;
+}
+.section-title::after {
+  content: ''; display: block; width: 60px; height: 3px;
+  background: var(--gradient-main); border-radius: 2px;
+  margin-top: 0.75rem;
+}
+.section-subtitle {
+  color: var(--text-secondary); font-size: 1.1rem;
+  margin-bottom: 3rem;
+}
+
+/* Scroll animation */
+.reveal {
+  opacity: 0; transform: translateY(40px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1; transform: translateY(0);
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--gradient-main);
+  opacity: 0; transition: opacity 0.3s;
+}
+.card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--purple);
+  box-shadow: var(--glow-purple);
+}
+.card:hover::before { opacity: 1; }
+
+.card h3 {
+  font-size: 1.2rem; font-weight: 700; color: var(--cyan);
+  margin-bottom: 0.75rem;
+}
+.card h4 {
+  font-size: 1rem; font-weight: 600; color: var(--blue);
+  margin: 1rem 0 0.5rem;
+}
+
+/* Tables */
+.table-wrapper {
+  overflow-x: auto; margin: 1.5rem 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.9rem;
+}
+thead th {
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.15));
+  padding: 0.9rem 1rem;
+  text-align: left; font-weight: 700;
+  color: var(--cyan);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(30,30,63,0.5);
+  color: var(--text-secondary);
+}
+tbody tr { transition: all 0.2s; }
+tbody tr:hover {
+  background: rgba(139,92,246,0.08);
+  color: var(--text-primary);
+}
+tbody tr:last-child td { border-bottom: none; }
+
+/* Accordion */
+.accordion { margin-bottom: 1rem; }
+.accordion-header {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 1rem;
+  transition: all 0.3s;
+  user-select: none;
+}
+.accordion-header:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--purple);
+  box-shadow: var(--glow-purple);
+}
+.accordion-header .icon {
+  width: 10px; height: 10px;
+  border-right: 2px solid var(--cyan);
+  border-bottom: 2px solid var(--cyan);
+  transform: rotate(45deg);
+  transition: transform 0.3s;
+  flex-shrink: 0;
+}
+.accordion-header.active .icon { transform: rotate(-135deg); }
+.accordion-header h3 { flex: 1; margin: 0; color: var(--text-primary); font-size: 1.05rem; }
+.accordion-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.5s ease, padding 0.3s ease;
+  padding: 0 1.5rem;
+  background: rgba(13,13,43,0.5);
+  border-radius: 0 0 12px 12px;
+  margin-top: -1px;
+  border: 1px solid transparent;
+  border-top: none;
+}
+.accordion-body.open {
+  max-height: 3000px;
+  padding: 1.5rem;
+  border-color: var(--border);
+}
+.accordion-body p, .accordion-body ul, .accordion-body .table-wrapper {
+  margin-bottom: 1rem;
+}
+
+/* Timeline */
+.timeline {
+  position: relative;
+  padding-left: 2.5rem;
+}
+.timeline::before {
+  content: '';
+  position: absolute; left: 12px; top: 0; bottom: 0; width: 2px;
+  background: linear-gradient(to bottom, var(--purple), var(--cyan), var(--blue));
+}
+.timeline-item {
+  position: relative;
+  margin-bottom: 2.5rem;
+}
+.timeline-dot {
+  position: absolute; left: -2.5rem; top: 0.3rem;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 2px solid var(--purple);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 800; color: var(--purple);
+  z-index: 2;
+  transition: all 0.3s;
+}
+.timeline-item:hover .timeline-dot {
+  background: var(--purple);
+  color: var(--bg-primary);
+  box-shadow: var(--glow-purple);
+  transform: scale(1.2);
+}
+.timeline-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  transition: all 0.3s;
+}
+.timeline-content:hover {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+.timeline-content h3 {
+  color: var(--cyan); font-size: 1.1rem; margin-bottom: 0.75rem;
+}
+.timeline-content ul {
+  list-style: none; padding: 0;
+}
+.timeline-content ul li {
+  padding: 0.3rem 0 0.3rem 1.25rem;
+  position: relative;
+  color: var(--text-secondary);
+}
+.timeline-content ul li::before {
+  content: '>';
+  position: absolute; left: 0;
+  color: var(--purple); font-weight: 700;
+}
+
+/* Checklist */
+.checklist { list-style: none; padding: 0; }
+.checklist li {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.6rem 0;
+  color: var(--text-secondary);
+}
+.checklist li input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 20px; height: 20px; min-width: 20px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  margin-top: 2px;
+}
+.checklist li input[type="checkbox"]:checked {
+  background: var(--gradient-main);
+  border-color: var(--cyan);
+}
+.checklist li input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute; left: 5px; top: 1px;
+  width: 6px; height: 10px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg);
+}
+.checklist li input[type="checkbox"]:hover {
+  border-color: var(--purple);
+  box-shadow: var(--glow-purple);
+}
+
+/* Grid */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Memory layers */
+.memory-layer {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.memory-layer::after {
+  content: '';
+  position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+  background: var(--gradient-main);
+}
+.memory-layer:hover {
+  border-color: var(--blue);
+  box-shadow: var(--glow-blue);
+  transform: translateX(4px);
+}
+.memory-layer h4 {
+  color: var(--purple); font-size: 1rem; margin-bottom: 0.5rem;
+}
+.memory-layer .tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(139,92,246,0.15);
+  color: var(--purple);
+  margin-right: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Protocol layers */
+.protocol-item {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(30,30,63,0.3);
+}
+.protocol-item:last-child { border-bottom: none; }
+.protocol-label {
+  min-width: 100px;
+  padding: 0.3rem 0.75rem;
+  background: rgba(6,182,212,0.1);
+  border: 1px solid rgba(6,182,212,0.2);
+  border-radius: 6px;
+  color: var(--cyan);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.protocol-desc { color: var(--text-secondary); font-size: 0.9rem; }
+
+/* Security layers */
+.security-tier {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.6rem 0;
+}
+.security-tier .tier-badge {
+  min-width: 70px;
+  text-align: center;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.tier-0 { background: rgba(139,92,246,0.15); color: var(--purple); }
+.tier-1 { background: rgba(59,130,246,0.15); color: var(--blue); }
+.tier-2 { background: rgba(6,182,212,0.15); color: var(--cyan); }
+.tier-3 { background: rgba(34,197,94,0.15); color: #22c55e; }
+.tier-4 { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.tier-5 { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+/* Checklist section */
+.checklist-section h3 {
+  color: var(--cyan); font-size: 1.2rem; margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.checklist-section h3::before {
+  content: ''; display: inline-block;
+  width: 8px; height: 8px;
+  background: var(--gradient-main);
+  border-radius: 50%;
+}
+
+/* Summary */
+.summary-card {
+  background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(6,182,212,0.1));
+  border: 1px solid var(--purple);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.summary-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(139,92,246,0.15), transparent 60%);
+}
+.summary-card .key-point {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: left;
+  margin-top: 1.5rem;
+  transition: all 0.3s;
+}
+.summary-card .key-point:hover {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+.summary-card .key-point .num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  background: var(--gradient-main);
+  border-radius: 50%;
+  font-size: 0.85rem; font-weight: 800;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Footer */
+footer {
+  position: relative; z-index: 1;
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--purple), var(--cyan), transparent);
+  margin: 3rem 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  nav { padding: 0.5rem 1rem; }
+  nav .nav-links { display: none; }
+  section { padding: 3rem 1rem; }
+  .hero h1 { font-size: 1.6rem; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .timeline { padding-left: 2rem; }
+  .timeline-dot { left: -2rem; width: 22px; height: 22px; font-size: 0.6rem; }
+}
+
+/* Glow text */
+.glow-text {
+  text-shadow: 0 0 10px rgba(139,92,246,0.5), 0 0 20px rgba(6,182,212,0.3);
+}
+
+/* Highlight */
+.highlight {
+  color: var(--cyan); font-weight: 600;
+}
+.highlight-purple {
+  color: var(--purple); font-weight: 600;
+}
+.highlight-blue {
+  color: var(--blue); font-weight: 600;
+}
+
+/* Blockquote */
+.blockquote {
+  border-left: 3px solid var(--purple);
+  padding: 0.75rem 1.25rem;
+  margin: 1rem 0;
+  background: rgba(139,92,246,0.06);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* Recommendation badge */
+.recommendation {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.15));
+  border: 1px solid var(--cyan);
+  border-radius: 999px;
+  color: var(--cyan);
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0.75rem 0;
+}
+
+/* Iron rule */
+.iron-rule {
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.iron-rule strong { color: #ef4444; }
+.iron-rule ul { margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+
+<canvas id="particle-bg"></canvas>
+
+<nav id="navbar">
+  <div class="logo">Multi-Agent Architecture</div>
+  <div class="nav-links">
+    <a href="#domain">六大建设域</a>
+    <a href="#roadmap">成熟度阶段</a>
+    <a href="#checklist">工程建设清单</a>
+    <a href="#summary">总结</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1 id="hero-title"></h1>
+  <p class="subtitle">基于 2025-2026 年业界主流框架的企业级落地方案</p>
+  <div class="scroll-hint">向下滚动探索完整方案 ↓</div>
+</div>
+
+<section id="domain">
+  <h2 class="section-title reveal">一、六大建设域</h2>
+  <p class="section-subtitle reveal">构建多 Agent 协作体系的六大核心领域</p>
+
+  <div class="accordion reveal">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="icon"></span>
+      <h3>域一：编排架构层（Orchestration Fabric）</h3>
+    </div>
+    <div class="accordion-body">
+      <p><strong class="highlight">核心决策：</strong>选择什么架构范式？</p>
+      
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>范式</th><th>适用场景</th><th>推荐度</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Hierarchical（分层编排）</td><td>合规审计、确定性流程为主</td><td>★★★★★</td></tr>
+            <tr><td>Hybrid（混合架构）</td><td>复杂业务，部分确定+部分灵活</td><td>★★★★★</td></tr>
+            <tr><td>Peer-to-Peer（分布式自治）</td><td>研究型、开放域问题</td><td>★★★</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="recommendation">推荐：业务绑定场景必选 Hybrid 架构</div>
+      
+      <ul>
+        <li><strong class="highlight">顶层：</strong>集中式 Orchestrator（负责任务分解、路由决策、全局状态）</li>
+        <li><strong class="highlight-purple">中层：</strong>按业务域划分 Sub-Agent Group（如"客服域"、"风控域"）</li>
+        <li><strong class="highlight-blue">底层：</strong>每个 Agent 内部可自治</li>
+      </ul>
+
+      <h4>推荐技术栈</h4>
+      <ul>
+        <li>编排框架：<strong class="highlight">LangGraph v1.0</strong>（状态机+checkpoint最成熟）或 <strong class="highlight">Microsoft Agent Framework</strong>（Azure生态）</li>
+        <li>跨框架互操作：<strong class="highlight-purple">Google A2A 协议</strong>（JSON-RPC 2.0）</li>
+        <li>工具连接：<strong class="highlight-blue">MCP（Model Context Protocol，250+ 标准工具）</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="accordion reveal">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="icon"></span>
+      <h3>域二：业务绑定层（Business Binding Layer）</h3>
+    </div>
+    <div class="accordion-body">
+      <p><strong class="highlight">四层注入体系：</strong></p>
+
+      <div class="grid-2">
+        <div class="memory-layer">
+          <h4>L4：业务规则层</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">Policy-as-Code (OPA/Cedar) → 确定性硬约束</p>
+          <span class="tag">确定性</span><span class="tag">硬约束</span>
+        </div>
+        <div class="memory-layer">
+          <h4>L3：知识图谱层</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">Agentic Knowledge Graph (Neo4j) → 多跳推理+记忆</p>
+          <span class="tag">推理</span><span class="tag">记忆</span>
+        </div>
+        <div class="memory-layer">
+          <h4>L2：RAG层</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">向量检索 (pgvector/Qdrant) → 动态知识查询</p>
+          <span class="tag">检索</span><span class="tag">向量</span>
+        </div>
+        <div class="memory-layer">
+          <h4>L1：Prompt/Fine-tuning层</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">角色定义+领域微调 → 角色专长内化</p>
+          <span class="tag">微调</span><span class="tag">角色</span>
+        </div>
+      </div>
+
+      <h4>各层建设要点</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>层次</th><th>建设内容</th><th>推荐技术</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>L1 Prompt/Fine-tuning</td><td>Agent 角色定义、系统提示模板、LoRA 微调</td><td>7B学生模型+72B教师蒸馏</td></tr>
+            <tr><td>L2 RAG</td><td>SOP/产品文档/政策文档 → 向量化 → 检索注入</td><td>LlamaIndex + Qdrant</td></tr>
+            <tr><td>L3 知识图谱</td><td>实体关系建模（客户↔订单↔规则↔合规）→ 多跳推理</td><td>Neo4j + GraphRAG</td></tr>
+            <tr><td>L4 规则引擎</td><td>硬规则（价格上限、合规限制）→ OPA/Cedar 确定性执行</td><td>OPA + 自然语言→POJO 转换</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="blockquote">关键原则：<br>
+      - LLM 只用于意图理解和推理，不用于运行时业务决策<br>
+      - 高业务风险操作必须由确定性代码执行（Drools/OPA）<br>
+      - Agent 决策结果写回图谱形成记忆闭环</div>
+    </div>
+  </div>
+
+  <div class="accordion reveal">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="icon"></span>
+      <h3>域三：记忆与状态层（Memory & State）</h3>
+    </div>
+    <div class="accordion-body">
+      <p><strong class="highlight">三层记忆架构：</strong></p>
+
+      <div class="grid-3">
+        <div class="memory-layer">
+          <h4>全局共享记忆 (Shared Knowledge)</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">领域知识图谱 + 政策文档 + 产品目录</p>
+          <span class="tag">Neo4j</span><span class="tag">Vector DB</span><span class="tag">TTL: 月级/年级</span>
+        </div>
+        <div class="memory-layer">
+          <h4>长期情景记忆 (Episodic Memory)</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">跨运行的历史: 谁、何时、做了什么 | 用户偏好 + 失败尝试 + 人工审批记录</p>
+          <span class="tag">pgvector</span><span class="tag">Weaviate</span><span class="tag">隐私隔离</span>
+        </div>
+        <div class="memory-layer">
+          <h4>短期工作记忆 (Scratch Memory)</h4>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">单次运行内的中间工具结果 + 部分计划</p>
+          <span class="tag">Redis</span><span class="tag">内存</span><span class="tag">TTL: 任务结束销毁</span>
+        </div>
+      </div>
+
+      <div class="iron-rule">
+        <strong>状态管理铁律：</strong>
+        <ul>
+          <li>Agent 必须无状态，每次从记忆重构上下文</li>
+          <li>共享状态使用 Reducer 模式解决并行写冲突</li>
+          <li>Checkpoint 持久化：生产用 Postgres，不用 SQLite（并发损坏）</li>
+          <li>状态精简：仅写入不可重建的数据</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion reveal">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="icon"></span>
+      <h3>域四：通信与工具层（Communication & Tools）</h3>
+    </div>
+    <div class="accordion-body">
+      <h4>Agent 间通信协议层次</h4>
+      <div class="card">
+        <div class="protocol-item">
+          <span class="protocol-label">跨系统</span>
+          <span class="protocol-desc">A2A Protocol (JSON-RPC + SSE + gRPC)</span>
+        </div>
+        <div class="protocol-item">
+          <span class="protocol-label">框架内</span>
+          <span class="protocol-desc">StateGraph/LangGraph 共享状态</span>
+        </div>
+        <div class="protocol-item">
+          <span class="protocol-label">事件驱动</span>
+          <span class="protocol-desc">Redis Streams / Kafka (Pub-Sub)</span>
+        </div>
+        <div class="protocol-item">
+          <span class="protocol-label">直接调用</span>
+          <span class="protocol-desc">函数调用 / RPC (低延迟场景)</span>
+        </div>
+      </div>
+
+      <h4>通信安全规则</h4>
+      <ul>
+        <li>Agent 间传输必须使用结构化 Schema（JSON Schema 验证），禁止自由文本交接</li>
+        <li>每次交接带完整上下文和版本号</li>
+        <li>W3C Trace Context 传播（跨 Agent 追踪 trace_id/span_id）</li>
+        <li>JWT/HMAC 签名验证 + 授权白名单</li>
+        <li>跳数计数器（防循环委派 A→B→C→A）</li>
+      </ul>
+
+      <h4>工具注册发现层次</h4>
+      <div class="card">
+        <div class="protocol-item">
+          <span class="protocol-label">硬编码</span>
+          <span class="protocol-desc">框架内工具</span>
+        </div>
+        <div class="protocol-item">
+          <span class="protocol-label">标准化</span>
+          <span class="protocol-desc">MCP Server</span>
+        </div>
+        <div class="protocol-item">
+          <span class="protocol-label">动态</span>
+          <span class="protocol-desc">Agent 注册表（Service Mesh + A2A AgentCard）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion reveal">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="icon"></span>
+      <h3>域五：安全治理层（Security & Governance）</h3>
+    </div>
+    <div class="accordion-body">
+      <p><strong class="highlight">五层防御体系（Defense-in-Depth）：</strong></p>
+      
+      <div class="card">
+        <div class="security-tier">
+          <span class="tier-badge tier-0">Layer 0</span>
+          <span class="protocol-desc">Design-Time - Agent 权限边界、工具白名单定义</span>
+        </div>
+        <div class="security-tier">
+          <span class="tier-badge tier-1">Layer 1</span>
+          <span class="protocol-desc">Input Guardrails - Prompt注入检测 + PII脱敏</span>
+        </div>
+        <div class="security-tier">
+          <span class="tier-badge tier-2">Layer 2</span>
+          <span class="protocol-desc">Action Plan Guardrails - 意图校验 (OPA策略)</span>
+        </div>
+        <div class="security-tier">
+          <span class="tier-badge tier-3">Layer 3</span>
+          <span class="protocol-desc">Output Guardrails - Schema验证 + 合规检查</span>
+        </div>
+        <div class="security-tier">
+          <span class="tier-badge tier-4">Layer 4</span>
+          <span class="protocol-desc">Human-in-the-Loop - 高风险审批 + 四眼原则</span>
+        </div>
+        <div class="security-tier">
+          <span class="tier-badge tier-5">Layer 5</span>
+          <span class="protocol-desc">Audit + Eval - 不可变审计日志 + 回归测试</span>
+        </div>
+      </div>
+
+      <h4>安全域详情</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>安全域</th><th>必须做</th><th>工具推荐</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Prompt 安全</td><td>输入过滤、注入检测、签名化系统提示</td><td>Lakera Guard / NeMo Guardrails</td></tr>
+            <tr><td>工具安全</td><td>最小权限、短凭证（≤15min）、沙箱隔离</td><td>MCP Server + 策略引擎</td></tr>
+            <tr><td>记忆安全</td><td>来源标记、完整性校验、租户隔离、追加审计</td><td>PostgreSQL + 权限控制</td></tr>
+            <tr><td>通信安全</td><td>JWT签名、信任级别(4级)、防重放(>5min拒绝)</td><td>OAuth 2.0 + W3C Trace</td></tr>
+            <tr><td>Agent 安全</td><td>Step预算、计划偏离检测、熔断器(5次→60s)</td><td>LangGraph内置</td></tr>
+            <tr><td>合规审计</td><td>不可变日志(5-7年)、实时策略匹配、越权升级</td><td>ValidMind / 自建</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion reveal">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="icon"></span>
+      <h3>域六：可观测性与评估层（Observability & Evaluation）</h3>
+    </div>
+    <div class="accordion-body">
+      <h4>可观测性架构流程</h4>
+      <div class="card" style="text-align:center; padding: 1.5rem;">
+        <span style="color:var(--purple);font-weight:700;">Agent Runtime</span>
+        <span style="color:var(--text-muted);margin:0 0.5rem;">→</span>
+        <span style="color:var(--blue);font-weight:700;">OpenTelemetry SDK</span>
+        <span style="color:var(--text-muted);margin:0 0.5rem;">→</span>
+        <span style="color:var(--cyan);font-weight:700;">OTel Collector</span>
+        <span style="color:var(--text-muted);margin:0 0.5rem;">→</span>
+        <span style="color:var(--text-primary);font-weight:600;">LangSmith / Langfuse / SigNoz / Jaeger</span>
+      </div>
+
+      <h4>必须采集的四个维度</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>维度</th><th>必采集</th><th>推荐</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Trace</td><td>Agent ID/Session ID/每步LLM调用/每步Tool调用</td><td>跨Agent委托链</td></tr>
+            <tr><td>Metrics</td><td>Token消耗/延迟(p50/p95)/错误率</td><td>并发数/Cost/Agent</td></tr>
+            <tr><td>Logs</td><td>Tool参数+结果/LLM输入输出/异常堆栈</td><td>推理链/决策理由</td></tr>
+            <tr><td>Eval</td><td>输出质量评分/工具选择正确性</td><td>A/B实验/回归测试</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>质量评估体系（CLASSic 框架）</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>维度</th><th>测量</th><th>方法</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Cost</td><td>Token消耗、每任务成本</td><td>Langfuse 成本追踪</td></tr>
+            <tr><td>Latency</td><td>p50/p95/p99 延迟</td><td>端到端/每步延迟</td></tr>
+            <tr><td>Accuracy</td><td>决策正确性、工具选择正确性</td><td>LLM-as-judge + 确定性比较</td></tr>
+            <tr><td>Stability</td><td>同一场景多次运行的方差</td><td>5-10次重复 → pass@k</td></tr>
+            <tr><td>Security</td><td>OWASP红队测试</td><td>注入/越权攻击测试集</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>CI/CD 集成流程</h4>
+      <div class="card">
+        <div class="protocol-item"><span class="protocol-label">Step 1</span><span class="protocol-desc">每次 PR 触发完整评估运行</span></div>
+        <div class="protocol-item"><span class="protocol-label">Step 2</span><span class="protocol-desc">指标阈值门控（必须 pass 才能部署）</span></div>
+        <div class="protocol-item"><span class="protocol-label">Step 3</span><span class="protocol-desc">生产失败自动流入回归测试集</span></div>
+        <div class="protocol-item"><span class="protocol-label">Step 4</span><span class="protocol-desc">A/B 实验（每个关键变更必须验证）</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="roadmap">
+  <h2 class="section-title reveal">二、五个成熟度阶段（落地路线图）</h2>
+  <p class="section-subtitle reveal">从单域验证到跨系统集成的 12 个月演进路径</p>
+
+  <div class="timeline reveal">
+    <div class="timeline-item">
+      <div class="timeline-dot">1</div>
+      <div class="timeline-content">
+        <h3>Phase 1 (Month 0-2): 单域验证</h3>
+        <ul>
+          <li>选 1 个高价值业务流程</li>
+          <li>1 Orchestrator + 3 Workers 跑通</li>
+          <li>直接消息通信 + 内存状态</li>
+          <li>LangFuse 或 LangSmith 接入</li>
+          <li>基础审计日志 + Token 追踪</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot">2</div>
+      <div class="timeline-content">
+        <h3>Phase 2 (Month 2-4): 基础设施 + 知识绑定</h3>
+        <ul>
+          <li>Checkpoint 持久化 (Postgres)</li>
+          <li>RAG 接入业务知识库</li>
+          <li>三层记忆架构搭建</li>
+          <li>基础错误恢复 (重试+超时+死信)</li>
+          <li>基础评估框架 (10-50 样本回归集)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot">3</div>
+      <div class="timeline-content">
+        <h3>Phase 3 (Month 4-6): 治理 + 规则引擎</h3>
+        <ul>
+          <li>Policy-as-Code (OPA/Cedar)</li>
+          <li>五层防御体系搭建</li>
+          <li>HITL 审批流程接入</li>
+          <li>结构化 Schema 通信协议</li>
+          <li>CI/CD 评估闸门</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot">4</div>
+      <div class="timeline-content">
+        <h3>Phase 4 (Month 6-9): 分布式 + 高可用</h3>
+        <ul>
+          <li>事件总线 (Redis Streams / Kafka)</li>
+          <li>Dynamic Agent Registry</li>
+          <li>知识图谱 (GraphRAG)</li>
+          <li>自动监控告警 + 三级自愈</li>
+          <li>多业务域推广</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot">5</div>
+      <div class="timeline-content">
+        <h3>Phase 5 (Month 9-12): 跨系统集成</h3>
+        <ul>
+          <li>A2A 跨框架互操作</li>
+          <li>Durable Execution (Temporal/Camunda)</li>
+          <li>Fine-tuning (LoRA 角色模型)</li>
+          <li>持续红队 + 自动回归扩展</li>
+          <li>多租户 + 自动扩展</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="checklist">
+  <h2 class="section-title reveal">三、工程建设清单（快速自查）</h2>
+  <p class="section-subtitle reveal">按建设域分组的工程任务清单，逐项打勾跟踪进度</p>
+
+  <div class="grid-2 reveal">
+    <div class="checklist-section">
+      <h3>基础设施</h3>
+      <ul class="checklist">
+        <li><input type="checkbox"><span>编排框架选型 (LangGraph / MS Agent Framework)</span></li>
+        <li><input type="checkbox"><span>数据库: Postgres + Redis + Vector DB</span></li>
+        <li><input type="checkbox"><span>消息中间件: Kafka / Redis Streams</span></li>
+        <li><input type="checkbox"><span>OpenTelemetry SDK 集成</span></li>
+        <li><input type="checkbox"><span>MCP Server 搭建</span></li>
+      </ul>
+    </div>
+
+    <div class="checklist-section">
+      <h3>业务绑定</h3>
+      <ul class="checklist">
+        <li><input type="checkbox"><span>业务领域知识建模 (泳道图 → Agent 角色映射)</span></li>
+        <li><input type="checkbox"><span>RAG 管道搭建</span></li>
+        <li><input type="checkbox"><span>知识图谱构建 (实体/关系定义)</span></li>
+        <li><input type="checkbox"><span>业务规则提取 → Policy-as-Code</span></li>
+        <li><input type="checkbox"><span>Agent 角色定义 + System Prompt 模板库</span></li>
+      </ul>
+    </div>
+
+    <div class="checklist-section">
+      <h3>安全治理</h3>
+      <ul class="checklist">
+        <li><input type="checkbox"><span>OWASP LLM + Agentic Top 10 威胁建模</span></li>
+        <li><input type="checkbox"><span>Prompt 注入检测</span></li>
+        <li><input type="checkbox"><span>工具权限最小化 + 短凭证</span></li>
+        <li><input type="checkbox"><span>五层防御架构实施</span></li>
+        <li><input type="checkbox"><span>HITL 审批流程</span></li>
+      </ul>
+    </div>
+
+    <div class="checklist-section">
+      <h3>可观测性与评估</h3>
+      <ul class="checklist">
+        <li><input type="checkbox"><span>分布式 Trace 接入 (W3C Context)</span></li>
+        <li><input type="checkbox"><span>Token/成本/延迟 Dashboard</span></li>
+        <li><input type="checkbox"><span>评估框架搭建 (100+ 样本回归集)</span></li>
+        <li><input type="checkbox"><span>CI/CD 评估闸门</span></li>
+        <li><input type="checkbox"><span>异常检测基线 + 告警</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="summary">
+  <h2 class="section-title reveal">总结</h2>
+  <p class="section-subtitle reveal">建设复杂多Agent体系的核心要义</p>
+
+  <div class="summary-card reveal">
+    <p style="font-size:1.15rem;color:var(--text-primary);position:relative;z-index:1;">
+      建设复杂多 Agent 体系的本质是 <strong class="highlight">将业务流程确定性化，将灵活推理局部化</strong>。
+    </p>
+
+    <div class="key-point">
+      <div style="display:flex;align-items:center;">
+        <span class="num">1</span>
+        <span><strong class="highlight-purple">业务规则与 Agent 推理的边界隔离</strong><br>
+        <span style="color:var(--text-secondary);font-size:0.9rem;">硬规则用 OPA/Drools，灵活推理用 LLM，绝不混用</span></span>
+      </div>
+    </div>
+    <div class="key-point">
+      <div style="display:flex;align-items:center;">
+        <span class="num">2</span>
+        <span><strong class="highlight">状态与记忆的三层分离</strong><br>
+        <span style="color:var(--text-secondary);font-size:0.9rem;">短期/长期/共享，访问模式截然不同</span></span>
+      </div>
+    </div>
+    <div class="key-point">
+      <div style="display:flex;align-items:center;">
+        <span class="num">3</span>
+        <span><strong class="highlight-blue">全链路可观测 + 评估闭环</strong><br>
+        <span style="color:var(--text-secondary);font-size:0.9rem;">没有评估的 Agent 系统是黑箱，不可审计等于不可控</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>复杂大型多Agent协作体系建设方案 | 2025-2026 企业级落地指南</p>
+</footer>
+
+<script>
+// Particle background
+(function(){
+  const canvas = document.getElementById('particle-bg');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+  const PARTICLE_COUNT = 80;
+  const MAX_DIST = 150;
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  class Particle {
+    constructor(){
+      this.x = Math.random() * w;
+      this.y = Math.random() * h;
+      this.vx = (Math.random() - 0.5) * 0.5;
+      this.vy = (Math.random() - 0.5) * 0.5;
+      this.radius = Math.random() * 1.5 + 0.5;
+      this.color = ['#8b5cf6','#06b6d4','#3b82f6'][Math.floor(Math.random()*3)];
+    }
+    update(){
+      this.x += this.vx;
+      this.y += this.vy;
+      if(this.x < 0 || this.x > w) this.vx *= -1;
+      if(this.y < 0 || this.y > h) this.vy *= -1;
+    }
+    draw(){
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = this.color;
+      ctx.globalAlpha = 0.6;
+      ctx.fill();
+    }
+  }
+
+  for(let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
+
+  function animate(){
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach(p => { p.update(); p.draw(); });
+
+    for(let i = 0; i < particles.length; i++){
+      for(let j = i + 1; j < particles.length; j++){
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < MAX_DIST){
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(139,92,246,${0.15 * (1 - dist/MAX_DIST)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+// Typing effect
+(function(){
+  const title = document.getElementById('hero-title');
+  const text = '复杂大型多Agent协作体系建设方案';
+  let i = 0;
+  function type(){
+    if(i <= text.length){
+      title.textContent = text.substring(0, i);
+      const cursor = document.createElement('span');
+      cursor.className = 'typing-cursor';
+      title.appendChild(cursor);
+      i++;
+      setTimeout(type, 80 + Math.random() * 60);
+    }
+  }
+  setTimeout(type, 500);
+})();
+
+// Scroll reveal
+(function(){
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+})();
+
+// Navbar scroll effect
+(function(){
+  const nav = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 50);
+  });
+})();
+
+// Accordion
+function toggleAccordion(header){
+  const body = header.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  
+  // Close all
+  document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('active'));
+  
+  if(!isOpen){
+    body.classList.add('open');
+    header.classList.add('active');
+  }
+}
+
+// Smooth scroll for nav links
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if(target){
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+</body>
+</html>
